@@ -34,8 +34,8 @@
         <dd class="col-sm-10">
             <table class="table">
                 <tr>
-                    <th>Course Title</th>
-                    <th>Grade</th>
+                    <th><a asp-action="Details" asp-route-sortOrder="@ViewData["CourseTitleSortParm"]">Course Title</a></th>
+                    <th><a asp-action="Details" asp-route-sortOrder="@ViewData["GradeSortParm"]">Grade</a></th>
                 </tr>
                 @foreach (var item in Model.Enrollments)
                 {

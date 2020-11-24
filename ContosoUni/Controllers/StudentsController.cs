@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using ContosoUni.Data;
 using ContosoUni.Models;
+using ContosoUni.ViewModels;
 
 namespace ContosoUni.Controllers
 {
@@ -20,14 +21,45 @@ namespace ContosoUni.Controllers
         }
 
         // GET: Students
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string sortOrder)
         {
-            return View(await _context.Students.ToListAsync());
+            ViewData["NameSortParm"] = String.IsNullOrEmpty(sortOrder) ? "name_desc" : "";
+            ViewData["FirstNameSortParm"] = sortOrder == "FirstName" ? "fName_desc" : "FirstName";
+            ViewData["DateSortParm"] = sortOrder == "Date" ? "date_desc" : "Date";
+
+            var students = from s in _context.Students
+                           select s;
+
+            switch (sortOrder)
+            {
+                case "name_desc":
+                    students = students.OrderByDescending(s => s.LastName);
+                    break;
+                case "Date":
+                    students = students.OrderBy(s => s.EnrollmentDate);
+                    break;
+                case "date_desc":
+                    students = students.OrderByDescending(s => s.EnrollmentDate);
+                    break;
+                case "FirstName":
+                    students = students.OrderBy(s => s.FirstMidName);
+                    break;
+                case "fName_desc":
+                    students = students.OrderByDescending(s => s.FirstMidName);
+                    break;
+                default:
+                    students = students.OrderBy(s => s.LastName);
+                    break;
+            }
+            return View(await students.AsNoTracking().ToListAsync());
         }
 
         // GET: Students/Details/5
-        public async Task<IActionResult> Details(int? id)
+        public async Task<IActionResult> Details(int? id, string sortOrder)
         {
+            ViewData["CourseTitleSortParm"] = String.IsNullOrEmpty(sortOrder) ? "courseTitle_desc" : "";
+            ViewData["GradeSortParm"] = sortOrder == "Grade" ? "grade_desc" : "Grade";
+
             if (id == null)
             {
                 return NotFound();
@@ -44,8 +76,25 @@ namespace ContosoUni.Controllers
                 return NotFound();
             }
 
+            switch (sortOrder)
+            {
+                case "courseTitle_desc":
+                    student.Enrollments = student.Enrollments.OrderByDescending(c => c.Course.Title).ToList();
+                    break;
+                case "grade_desc":
+                    student.Enrollments = student.Enrollments.OrderByDescending(c => c.Grade).ToList();
+                    break;
+                case "Grade":
+                    student.Enrollments = student.Enrollments.OrderBy(c => c.Grade).ToList();
+                    break;
+                default:
+                    student.Enrollments = student.Enrollments.OrderBy(c => c.Course.Title).ToList();
+                    break;
+            }
+
             return View(student);
         }
+
 
         // GET: Students/Create
         public IActionResult Create()
