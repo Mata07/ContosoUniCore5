@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using ContosoUni.Data;
 using ContosoUni.Models;
-using ContosoUni.ViewModels;
 
 namespace ContosoUni.Controllers
 {
@@ -21,14 +20,21 @@ namespace ContosoUni.Controllers
         }
 
         // GET: Students
-        public async Task<IActionResult> Index(string sortOrder)
+        public async Task<IActionResult> Index(string sortOrder, string searchString)
         {
             ViewData["NameSortParm"] = String.IsNullOrEmpty(sortOrder) ? "name_desc" : "";
             ViewData["FirstNameSortParm"] = sortOrder == "FirstName" ? "fName_desc" : "FirstName";
             ViewData["DateSortParm"] = sortOrder == "Date" ? "date_desc" : "Date";
+            ViewData["CurrentFilter"] = searchString;
 
             var students = from s in _context.Students
                            select s;
+
+            if (!String.IsNullOrEmpty(searchString))
+            {
+                students = students.Where(s => s.LastName.Contains(searchString)
+                                        || s.FirstMidName.Contains(searchString));
+            }
 
             switch (sortOrder)
             {
@@ -55,10 +61,11 @@ namespace ContosoUni.Controllers
         }
 
         // GET: Students/Details/5
-        public async Task<IActionResult> Details(int? id, string sortOrder)
+        public async Task<IActionResult> Details(int? id, string sortOrder, string searchString)
         {
             ViewData["CourseTitleSortParm"] = String.IsNullOrEmpty(sortOrder) ? "courseTitle_desc" : "";
             ViewData["GradeSortParm"] = sortOrder == "Grade" ? "grade_desc" : "Grade";
+            ViewData["CurrentFilter"] = searchString;
 
             if (id == null)
             {
@@ -74,6 +81,11 @@ namespace ContosoUni.Controllers
             if (student == null)
             {
                 return NotFound();
+            }
+
+            if (!String.IsNullOrEmpty(searchString))
+            {
+                student.Enrollments = student.Enrollments.Where(s => s.Course.Title.ToUpper().Contains(searchString.ToUpper())).ToList();
             }
 
             switch (sortOrder)
