@@ -42,9 +42,9 @@
                 <td>
                     @*Added an Office column that displays item.OfficeAssignment.Location only if item.OfficeAssignment isn't null.
                         (Because this is a one-to-zero-or-one relationship, there might not be a related OfficeAssignment entity.)*@
-                    @if (item.OfficeAssignments != null)
+                    @if (item.OfficeAssignment != null)
                     {
-                        @item.OfficeAssignments.Location
+                        @item.OfficeAssignment.Location
                     }
                 </td>
                 <td>

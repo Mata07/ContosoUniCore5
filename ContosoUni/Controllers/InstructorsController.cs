@@ -29,7 +29,7 @@ namespace ContosoUni.Controllers
             var viewModel = new InstructorIndexData();
 
             viewModel.Instructors = await _context.Instructors
-                .Include(i => i.OfficeAssignments)
+                .Include(i => i.OfficeAssignment)
                 .Include(i => i.CourseAssignments)
                     .ThenInclude(i => i.Course)
                         .ThenInclude(i => i.Enrollments)
@@ -81,23 +81,50 @@ namespace ContosoUni.Controllers
         // GET: Instructors/Create
         public IActionResult Create()
         {
+            // provide empty collection for the foreach loop in the View(to avoid null reference exception)
+            var instructor = new Instructor();
+            instructor.CourseAssignments = new List<CourseAssignment>();
+            PopulateAssignedCourseData(instructor);
             return View();
         }
 
         // POST: Instructors/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
+        // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("ID,LastName,FirstMidName,HireDate")] Instructor instructor)
+        public async Task<IActionResult> Create([Bind("FirstMidName,HireDate,LastName,OfficeAssignment")] Instructor instructor, string[] selectedCourses)
         {
+            // The HttpPost Create method adds each selected course to the CourseAssignments navigation property
+            // before it checks for validation errors and adds the new instructor to the database.
+            // Courses are added even if there are model errors so that when there are model errors
+            // (for an example, the user keyed an invalid date), and the page is redisplayed with an error message,
+            // any course selections that were made are automatically restored.
+
+            if (selectedCourses != null)
+            {
+                //  to be able to add courses to the CourseAssignments navigation property you have to initialize the property as an empty collection:
+                // Alternative is to do it in the Instructor model by changing the property getter to automatically create the collection if it doesn't exist
+                //private ICollection<CourseAssignment> _courseAssignments;
+                //public ICollection<CourseAssignment> CourseAssignments
+                //{ get {  return _courseAssignments ?? (_courseAssignments = new List<CourseAssignment>()); }
+                //  set {  _courseAssignments = value;} }
+                instructor.CourseAssignments = new List<CourseAssignment>();
+                foreach (var course in selectedCourses)
+                {
+                    var courseToAdd = new CourseAssignment { InstructorID = instructor.ID, CourseID = int.Parse(course) };
+                    instructor.CourseAssignments.Add(courseToAdd);
+                }
+            }
             if (ModelState.IsValid)
             {
                 _context.Add(instructor);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
+            PopulateAssignedCourseData(instructor);
             return View(instructor);
+
         }
 
         // GET: Instructors/Edit/5
@@ -109,7 +136,7 @@ namespace ContosoUni.Controllers
             }
 
             var instructor = await _context.Instructors
-                .Include(i => i.OfficeAssignments)
+                .Include(i => i.OfficeAssignment)
                 .Include(i => i.CourseAssignments)
                     .ThenInclude(i => i.Course)
                 .AsNoTracking()
@@ -137,7 +164,7 @@ namespace ContosoUni.Controllers
             }
 
             var instructorToUpdate = await _context.Instructors
-                .Include(i => i.OfficeAssignments)
+                .Include(i => i.OfficeAssignment)
                 .Include(i => i.CourseAssignments)
                     .ThenInclude(i => i.Course)
                 .FirstOrDefaultAsync(s => s.ID == id);
@@ -145,13 +172,13 @@ namespace ContosoUni.Controllers
             if (await TryUpdateModelAsync<Instructor>(
                 instructorToUpdate,
                 "",
-                i => i.FirstMidName, i => i.LastName, i => i.HireDate, i => i.OfficeAssignments))
+                i => i.FirstMidName, i => i.LastName, i => i.HireDate, i => i.OfficeAssignment))
             {
                 // If the office location is blank, sets the Instructor.OfficeAssignment property to null
                 // so that the related row in the OfficeAssignment table will be deleted.
-                if (String.IsNullOrWhiteSpace(instructorToUpdate.OfficeAssignments?.Location))
+                if (String.IsNullOrWhiteSpace(instructorToUpdate.OfficeAssignment?.Location))
                 {
-                    instructorToUpdate.OfficeAssignments = null;
+                    instructorToUpdate.OfficeAssignment = null;
                 }
                 UpdateInstructorCourses(selectedCourses, instructorToUpdate);
                 try
@@ -172,10 +199,19 @@ namespace ContosoUni.Controllers
             return View(instructorToUpdate);
         }
 
+        // The code in the PopulateAssignedCourseData method reads through all Course entities
+        // in order to load a list of courses using the view model class.
         private void PopulateAssignedCourseData(Instructor instructor)
         {
+            // load all courses
             var allCourses = _context.Courses;
+
+            // For each course, the code CHECKS whether the COURSE EXIST in the instructor's Courses navigation property. 
+            // To create efficient lookup when checking whether a course is assigned to the instructor, the courses assigned to the instructor are put into a HashSet collection
+            // HashSet<int> - collection with no duplicate items and not sorted
             var instructorCourses = new HashSet<int>(instructor.CourseAssignments.Select(c => c.CourseID));
+
+            // Create list of viewModels
             var viewModel = new List<AssignedCourseData>();
             foreach (var course in allCourses)
             {
@@ -183,9 +219,12 @@ namespace ContosoUni.Controllers
                 {
                     CourseID = course.CourseID,
                     Title = course.Title,
+                    // The Assigned (bool) property is set to true for courses the instructor is assigned to.
+                    // The view will use this property to determine which check boxes must be displayed as selected. 
                     Assigned = instructorCourses.Contains(course.CourseID)
                 });
             }
+            // pass the list to View
             ViewData["Courses"] = viewModel;
         }
 
@@ -244,15 +283,23 @@ namespace ContosoUni.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var instructor = await _context.Instructors.FindAsync(id);
+            Instructor instructor = await _context.Instructors
+                .Include(i => i.CourseAssignments)
+                .SingleAsync(i => i.ID == id);
+
+            var departments = await _context.Departments
+                .Where(d => d.InstructorID == id)
+                .ToListAsync();
+
+            departments.ForEach(d => d.InstructorID = null);
+
             _context.Instructors.Remove(instructor);
+
             await _context.SaveChangesAsync();
+
             return RedirectToAction(nameof(Index));
         }
 
-        private bool InstructorExists(int id)
-        {
-            return _context.Instructors.Any(e => e.ID == id);
-        }
+        
     }
 }

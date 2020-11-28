@@ -38,7 +38,7 @@ namespace ContosoUni.Models
 
         #region Navigation Properties
         public ICollection<CourseAssignment> CourseAssignments { get; set; }
-        public OfficeAssignment OfficeAssignments { get; set; }
+        public OfficeAssignment OfficeAssignment { get; set; }
         #endregion
     }
 }
