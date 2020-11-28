@@ -131,12 +131,12 @@ namespace ContosoUni.Controllers
             return View(courseToUpdate);
         }
 
-        private void PopulateDepartmentsDropDownList(object selectedDeparment = null)
+        private void PopulateDepartmentsDropDownList(object selectedDepartment = null)
         {
             var departmentsQuery = from d in _context.Departments
                                    orderby d.Name
                                    select d;
-            ViewBag.DeparmentID = new SelectList(departmentsQuery.AsNoTracking(), "DepartmentID", "Name", selectedDeparment);
+            ViewBag.DepartmentID = new SelectList(departmentsQuery.AsNoTracking(), "DepartmentID", "Name", selectedDepartment);
         }
 
         // GET: Courses/Delete/5
