@@ -23,8 +23,11 @@ namespace ContosoUni.Models
         [Display(Name = "Start Date")]
         public DateTime StartDate { get; set; }
 
+        public int? InstructorID { get; set; }
 
-        public int? InstructorID { get; set; } 
+        // Timestamp attribute specifies that this column will be included in the Where clause of Update and Delete commands sent to the database.
+        [Timestamp]
+        public byte[] RowVersion { get; set; }
         #endregion
 
 
